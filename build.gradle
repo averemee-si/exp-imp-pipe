@@ -1,0 +1,162 @@
+/**
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
+ * the License for the specific language governing permissions and limitations under the License.
+ */
+
+plugins {
+	id "java-library"
+	id "com.github.johnrengelman.shadow" version "7.1.2"
+	id "org.owasp.dependencycheck" version "8.4.0"
+	id "maven-publish"
+    id "signing"
+}
+
+java {
+	withSourcesJar()
+	withJavadocJar()
+	sourceCompatibility = JavaVersion.VERSION_11
+	targetCompatibility = JavaVersion.VERSION_11
+}
+
+repositories {
+	mavenCentral()
+}
+
+import java.nio.file.Paths
+
+def readVersion() {
+	def versionPropsFile = file(Paths.get("src","main","resources","exp-imp-pipe-version.properties"))
+	if (versionPropsFile.canRead()) {
+		Properties versionProps = new Properties()
+
+		if (versionPropsFile.canRead()) {
+			versionProps.load(new FileInputStream(versionPropsFile))
+		}
+		versionProps['version']
+	} else {
+		throw new GradleException("Could not read version.properties!")
+	}
+}
+
+version = readVersion()
+group "solutions.a2.oracle"
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+    def oracleJdbcVersion = "23.3.0.23.09"
+    // https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc11
+    implementation("com.oracle.database.jdbc:ojdbc11:$oracleJdbcVersion")
+    // https://mvnrepository.com/artifact/com.oracle.database.jdbc/ucp11
+    implementation("com.oracle.database.jdbc:ucp11:$oracleJdbcVersion")
+
+    def commonsCliVersion = "1.5.0"
+    // https://mvnrepository.com/artifact/commons-cli/commons-cli
+    implementation("commons-cli:commons-cli:$commonsCliVersion")
+
+ 	def commonsLang3Version = "3.13.0"
+ 	// https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
+ 	implementation("org.apache.commons:commons-lang3:$commonsLang3Version")
+
+    def slf4jVersion = "2.0.9"
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
+    implementation("org.slf4j:slf4j-api:$slf4jVersion")
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-reload4j
+    implementation("org.slf4j:slf4j-reload4j:$slf4jVersion")
+ 
+    def jUnitVersion = "5.9.2"
+    // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
+    testImplementation("org.junit.jupiter:junit-jupiter-api:$jUnitVersion")
+    // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-engine
+    testImplementation("org.junit.jupiter:junit-jupiter-engine:$jUnitVersion")
+}
+
+
+jar {
+    duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
+	manifest {
+        attributes "Main-Class": "solutions.a2.oracle.expimp.pipe.ExpImpPipe"
+    }
+}
+
+import com.github.jengelman.gradle.plugins.shadow.tasks.ConfigureShadowRelocation
+shadowJar {
+    duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
+    manifest {
+        attributes "Main-Class": "solutions.a2.oracle.expimp.pipe.ExpImpPipe"
+    }
+}
+
+test {
+	useJUnitPlatform {
+		excludeTags 'ignored'
+	}
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            pom {
+                name = "Oracle LOB Mover"
+                packaging = "jar"
+                url = "https://github.com/averemee-si/exp-imp-pipe"
+                description =
+                    "Oracle LOB Move Accelerator"
+                organization {
+                    name = "A2 Rešitve, d.o.o."
+                    url = "https://a2-solutions.eu/"
+                }
+                scm {
+                    url = "https://github.com/averemee-si/exp-imp-pipe"
+                    connection = "scm:git:https://github.com/averemee-si/exp-imp-pipe.git"
+                    developerConnection = "scm:git:git@github.com:averemee-si/exp-imp-pipe.git"
+                }
+                licenses {
+                    license {
+                        name = "The Apache License, Version 2.0"
+                        url = "https://a2-solutions.eu/licenses/apache/LICENSE.txt"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "averemee-si"
+                        name = "Aleksei Veremeev"
+                        email = "averemee@a2.solutions"
+                        timezone = "Europe/Ljubljana"
+                        organization = "A2 Rešitve, d.o.o."
+                        organizationUrl = "https://a2-solutions.eu/"
+                    }
+                }
+            }
+        }
+    }
+
+    repositories {
+	maven {
+            url = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+	    credentials {
+	        username = project.hasProperty('ossrh.Username') ? project.property('ossrh.Username') : ""
+	        password = project.hasProperty('ossrh.Password') ? project.property('ossrh.Password') : ""
+	    }
+	}
+    }
+}
+
+signing {
+    def signingKey = project.hasProperty('signing.Key') ? project.property('signing.Key') : ""
+    def signingPassword = project.hasProperty('signing.Password') ? project.property('signing.Password') : ""
+    useInMemoryPgpKeys(signingKey, signingPassword)
+    sign publishing.publications.mavenJava
+}
