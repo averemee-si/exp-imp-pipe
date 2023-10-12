@@ -41,7 +41,6 @@ public class ExpImpPipe {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ExpImpPipe.class);
 	private static final int ROWS_TO_COMMIT = 50;
-	private static final int MAX_ROWS = 32767;
 
 	public static void main(String[] argv) {
 		LOGGER.info("Starting...");
@@ -169,11 +168,6 @@ public class ExpImpPipe {
 		final CountDownLatch latch = new CountDownLatch(degree);
 		int rowNumStart = 0;
 		final int interval = Math.floorDiv(table.rowCount(), degree) + 1;
-		if (interval > MAX_ROWS) {
-			LOGGER.error(
-					"Unable to process {} rows per worker, max allowed value is {}!\nPlease increase parallel-degree value!",
-					interval, MAX_ROWS);
-		}
 		for (int i = 0; i < degree; i++) {
 			try {
 				final int rownumEnd;

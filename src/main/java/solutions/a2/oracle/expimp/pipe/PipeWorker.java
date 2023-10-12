@@ -46,6 +46,8 @@ public class PipeWorker extends Thread {
 	private final int commitAfter;
 	private final boolean useDefaultFetchSize;
 
+	private static final int MAX_ROWS = 32767;
+
 	public PipeWorker(
 			final int workerNum,
 			final CountDownLatch latch,
@@ -71,56 +73,85 @@ public class PipeWorker extends Thread {
 	@Override
 	public void run() {
 		try {
-			//TODO - separate by batches!!!
 			long elapsed = System.currentTimeMillis();
-			final Array rowIdArray = table.getRowIdArray(connSource, rowNumStart, rowNumEnd);
-			LOGGER.info(
-					"\n" +
-					"=====================\n" +
-					"Thread {}: will process rows from {} to {}\n" +
-					"Prepared to run in {} milliseconds\n" +
-					"=====================\n",
-					this.getName(), rowNumStart, rowNumEnd - 1, System.currentTimeMillis() - elapsed);
-
-			elapsed = System.currentTimeMillis();
-			long elapsed4Part = elapsed;
 			int rowsProcessed = 0;
-			int rowsToCommit = 0;
-			int rowsToPrintLog = 0;
 			final OracleCallableStatement selectData = table.prepareSource(connSource);
 			final OraclePreparedStatement insertData = table.prepareDest(connDest);
 			if (!useDefaultFetchSize) {
 				selectData.setFetchSize(rowNumEnd - rowNumStart);
 			}
-			selectData.registerOutParameter(1, OracleTypes.CURSOR);
-			selectData.setArray(2, rowIdArray);
-			selectData.execute();
-			final OracleResultSet resultSet = (OracleResultSet) selectData.getCursor(1);
+			final int batchCount = (int) Math.ceil( ((double)(rowNumEnd - rowNumStart))/MAX_ROWS);
+			LOGGER.info(
+					"\n" +
+					"=====================\n" +
+					"Thread {}: will process rows from {} to {} in {} batche(s).\n" +
+					"=====================\n",
+					this.getName(), rowNumStart, rowNumEnd - 1, batchCount);
+			for (int batchNum = 0; batchNum < batchCount; batchNum++) {
+				long elapsedBatch = System.currentTimeMillis();
+				final int batchStart;
+				final int batchEnd;
+				if (batchCount == 1) {
+					batchStart = rowNumStart;
+					batchEnd = rowNumEnd;
+				} else {
+					batchStart = rowNumStart + (MAX_ROWS * batchNum);
+					if (batchNum == batchCount - 1) {
+						batchEnd = rowNumEnd;
+					} else {
+						batchEnd = batchStart + MAX_ROWS;
+					}
+				}
+				final Array rowIdArray = table.getRowIdArray(connSource, batchStart, batchEnd);
+				LOGGER.info(
+						"\n" +
+						"=====================\n" +
+						"Thread {}, Batch {}: will process rows from {} to {}\n" +
+						"Prepared to run in {} milliseconds\n" +
+						"=====================\n",
+						this.getName(), batchNum, batchStart, batchEnd - 1, System.currentTimeMillis() - elapsedBatch);
+				elapsedBatch = System.currentTimeMillis();
+				long elapsed4Part = elapsedBatch;
 
-			while (resultSet.next()) {
-				table.processRow(resultSet, insertData);
-				insertData.addBatch();
-				rowsProcessed++;
-				rowsToCommit++;
-				rowsToPrintLog++;
-				if (rowsToCommit == commitAfter) {
+				int rowsProcessedInBatch = 0;
+				int rowsToCommit = 0;
+				int rowsToPrintLog = 0;
+				selectData.registerOutParameter(1, OracleTypes.CURSOR);
+				selectData.setArray(2, rowIdArray);
+				selectData.execute();
+				final OracleResultSet resultSet = (OracleResultSet) selectData.getCursor(1);
+				while (resultSet.next()) {
+					table.processRow(resultSet, insertData);
+					insertData.addBatch();
+					rowsProcessed++;
+					rowsProcessedInBatch++;
+					rowsToCommit++;
+					rowsToPrintLog++;
+					if (rowsToCommit == commitAfter) {
+						insertData.executeBatch();
+						connDest.commit();
+						rowsToCommit = 0;
+					}
+					if (rowsToPrintLog == PRINT_TO_LOG) {
+						final long currentTime = System.currentTimeMillis();
+						LOGGER.info("{} rows processed in {} ms.",
+								PRINT_TO_LOG, currentTime - elapsed4Part);
+						elapsed4Part = currentTime;
+						rowsToPrintLog = 0;
+					}
+				}
+				if (rowsToCommit > 0) {
 					insertData.executeBatch();
 					connDest.commit();
-					rowsToCommit = 0;
 				}
-				if (rowsToPrintLog == PRINT_TO_LOG) {
-					final long currentTime = System.currentTimeMillis();
-					LOGGER.info("{} rows processed in {} ms.",
-							PRINT_TO_LOG, currentTime - elapsed4Part);
-					elapsed4Part = currentTime;
-					rowsToPrintLog = 0;
-				}
+				resultSet.close();
+				LOGGER.info(
+						"\n" +
+						"=====================\n" +
+						"Thread {}, Batch {}: {} rows processed in {} milliseconds\n" +
+						"=====================\n",
+						this.getName(), rowsProcessedInBatch, System.currentTimeMillis() - elapsedBatch);
 			}
-			if (rowsToCommit > 0) {
-				insertData.executeBatch();
-				connDest.commit();
-			}
-			resultSet.close();
 			selectData.close();
 			insertData.close();
 			connSource.close();
