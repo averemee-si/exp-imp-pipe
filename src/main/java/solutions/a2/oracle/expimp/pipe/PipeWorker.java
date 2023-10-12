@@ -44,7 +44,7 @@ public class PipeWorker extends Thread {
 	private final OracleConnection connSource;
 	private final OracleConnection connDest;
 	private final int commitAfter;
-	private final Array rowIdArray;
+	private final boolean useDefaultFetchSize;
 
 	public PipeWorker(
 			final int workerNum,
@@ -54,8 +54,8 @@ public class PipeWorker extends Thread {
 			final PipeTable table,
 			final OracleConnection connSource,
 			final OracleConnection connDest,
-			final int commitAfter) throws SQLException {
-		long elapsed = System.currentTimeMillis();
+			final int commitAfter,
+			final boolean useDefaultFetchSize) throws SQLException {
 		this.setDaemon(true);
 		this.setName("pipe-" + workerNum);
 		this.latch = latch;
@@ -65,27 +65,33 @@ public class PipeWorker extends Thread {
 		this.connSource = connSource;
 		this.connDest = connDest;
 		this.commitAfter = commitAfter;
-		this.rowIdArray = table.getRowIdArray(connSource, rowNumStart, rowNumEnd);
-		LOGGER.info(
-				"\n" +
-				"=====================\n" +
-				"Thread {}: will process rows from {} to {}\n" +
-				"Prepared to run in {} milliseconds\n" +
-				"=====================\n",
-				this.getName(), rowNumStart, rowNumEnd - 1, System.currentTimeMillis() - elapsed);
+		this.useDefaultFetchSize = useDefaultFetchSize;
 	}
 
 	@Override
 	public void run() {
-		int rowsProcessed = 0;
-		int rowsToCommit = 0;
-		int rowsToPrintLog = 0;
-		long elapsed = System.currentTimeMillis();
-		long elapsed4Part = elapsed;
 		try {
+			//TODO - separate by batches!!!
+			long elapsed = System.currentTimeMillis();
+			final Array rowIdArray = table.getRowIdArray(connSource, rowNumStart, rowNumEnd);
+			LOGGER.info(
+					"\n" +
+					"=====================\n" +
+					"Thread {}: will process rows from {} to {}\n" +
+					"Prepared to run in {} milliseconds\n" +
+					"=====================\n",
+					this.getName(), rowNumStart, rowNumEnd - 1, System.currentTimeMillis() - elapsed);
+
+			elapsed = System.currentTimeMillis();
+			long elapsed4Part = elapsed;
+			int rowsProcessed = 0;
+			int rowsToCommit = 0;
+			int rowsToPrintLog = 0;
 			final OracleCallableStatement selectData = table.prepareSource(connSource);
 			final OraclePreparedStatement insertData = table.prepareDest(connDest);
-			selectData.setFetchSize(rowNumEnd - rowNumStart);
+			if (!useDefaultFetchSize) {
+				selectData.setFetchSize(rowNumEnd - rowNumStart);
+			}
 			selectData.registerOutParameter(1, OracleTypes.CURSOR);
 			selectData.setArray(2, rowIdArray);
 			selectData.execute();

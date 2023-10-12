@@ -147,6 +147,13 @@ public class ExpImpPipe {
 			}
 		}
 
+		final boolean useDefaultFetchSize;
+		if (cmd.hasOption("fetch-all-rows")) {
+			useDefaultFetchSize = false;
+		} else {
+			useDefaultFetchSize = true;
+		}
+
 		PipeTable table = null;
 		try (OracleConnection connection = source.getConnection()) {
 			table = new PipeTable(connection, sourceSchema, sourceTable,
@@ -177,7 +184,7 @@ public class ExpImpPipe {
 				}
 				final PipeWorker worker = new PipeWorker(i, latch,
 						rowNumStart, rownumEnd, table, source.getConnection(),
-						dest.getConnection(), commitAfter);
+						dest.getConnection(), commitAfter, useDefaultFetchSize);
 				threadPool.submit(worker);
 				rowNumStart = rownumEnd;
 			} catch (SQLException e) {
@@ -252,6 +259,11 @@ public class ExpImpPipe {
 				"Optional number of rows to commit. Default value - " + ROWS_TO_COMMIT);
 		rowsToCommit.setRequired(false);
 		options.addOption(rowsToCommit);
+		// Optional
+		final Option prefetchAllRows = new Option("f", "fetch-all-rows", false,
+				"When specified try to fetch all rows from source");
+		prefetchAllRows.setRequired(false);
+		options.addOption(prefetchAllRows);
 
 	}
 }
