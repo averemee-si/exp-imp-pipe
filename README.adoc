@@ -25,6 +25,9 @@ gradle dependencyCheckAnalyze
 
 If the above reports any vulnerabilities, upgrade dependencies to use the respective latest versions.
 
+== Tips
+ORA-1461 -> defaultNChar=true
+
 == Version and release history
 
 

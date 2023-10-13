@@ -47,6 +47,7 @@ public class PipeWorker extends Thread {
 	private final boolean useDefaultFetchSize;
 
 	private static final int MAX_ROWS = 32767;
+	private static final int ORA_1461 = 1461;
 
 	public PipeWorker(
 			final int workerNum,
@@ -72,6 +73,8 @@ public class PipeWorker extends Thread {
 
 	@Override
 	public void run() {
+		int currentRowIndex = rowNumStart;
+		int rowsToCommit = 0;
 		try {
 			long elapsed = System.currentTimeMillis();
 			int rowsProcessed = 0;
@@ -113,13 +116,14 @@ public class PipeWorker extends Thread {
 				elapsedBatch = System.currentTimeMillis();
 				long elapsed4Part = elapsedBatch;
 
+				rowsToCommit = 0;
 				int rowsProcessedInBatch = 0;
-				int rowsToCommit = 0;
 				int rowsToPrintLog = 0;
 				selectData.registerOutParameter(1, OracleTypes.CURSOR);
 				selectData.setArray(2, rowIdArray);
 				selectData.execute();
 				final OracleResultSet resultSet = (OracleResultSet) selectData.getCursor(1);
+				currentRowIndex = batchStart;
 				while (resultSet.next()) {
 					table.processRow(resultSet, insertData);
 					insertData.addBatch();
@@ -139,6 +143,7 @@ public class PipeWorker extends Thread {
 						elapsed4Part = currentTime;
 						rowsToPrintLog = 0;
 					}
+					currentRowIndex++;
 				}
 				if (rowsToCommit > 0) {
 					insertData.executeBatch();
@@ -150,7 +155,7 @@ public class PipeWorker extends Thread {
 						"=====================\n" +
 						"Thread {}, Batch {}: {} rows processed in {} milliseconds\n" +
 						"=====================\n",
-						this.getName(), rowsProcessedInBatch, System.currentTimeMillis() - elapsedBatch);
+						this.getName(), batchNum, rowsProcessedInBatch, System.currentTimeMillis() - elapsedBatch);
 			}
 			selectData.close();
 			insertData.close();
@@ -163,7 +168,15 @@ public class PipeWorker extends Thread {
 					"=====================\n",
 					this.getName(), rowsProcessed, System.currentTimeMillis() - elapsed);
 		} catch (SQLException sqle) {
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			if (sqle.getErrorCode() == ORA_1461) {
+				LOGGER.error(
+						"\n" +
+						"=====================\n" +
+						"ORA-01461: Please add to destination URL parameter 'defaultNChar=true' and restart process!\n" +
+						"=====================\n");
+			} else {
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			}
 		}
 		latch.countDown();
 	}
