@@ -28,7 +28,6 @@ import oracle.jdbc.OracleCallableStatement;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
-import oracle.sql.ROWID;
 
 /**
  * 
@@ -46,7 +45,7 @@ public class PipeTable {
 	private final String destinationTableName;
 	private final List<PipeColumn> allColumns;
 	private String sqlSelectKeys, sqlSelectData, sqlInsertData;
-	private final List<ROWID> keyArray;
+	private final RowIdStore rowIdStore;
 
 	public PipeTable(
 			final OracleConnection connection,
@@ -54,31 +53,39 @@ public class PipeTable {
 			final String sourceTableName,
 			final String destinationTableOwner,
 			final String destinationTableName,
-			final String whereClause) throws SQLException {
+			final String whereClause,
+			final int rowIdStoreType) throws SQLException {
 		this.sourceTableOwner = sourceTableOwner;
 		this.sourceTableName = sourceTableName;
 		this.destinationTableOwner = destinationTableOwner;
 		this.destinationTableName = destinationTableName;
 		this.allColumns = new ArrayList<>();
-		this.keyArray = new ArrayList<>();
-
+		if (rowIdStoreType == ExpImpPipe.ROWID_STORE_LIST) {
+			this.rowIdStore = new RowIdStoreArrayList();
+		} else {
+			//TODO
+			this.rowIdStore = null;
+		}
 		fillColumnInfo(connection, whereClause);
 
-		readKeys(connection);
+		long elapsed = System.currentTimeMillis();
+		rowIdStore.readKeys(connection, sqlSelectKeys);
+		elapsed = System.currentTimeMillis() - elapsed;
+		LOGGER.info(
+				"\n" +
+				"=====================\n" +
+				"{}.{} :\n" +
+				"\t{} rows read in {} milliseconds\n" +
+				"=====================\n",
+				sourceTableOwner, sourceTableName, rowIdStore.size(), elapsed);
 	}
 
 	protected int rowCount()  {
-		return keyArray.size();
+		return rowIdStore.size();
 	}
 
 	protected Array getRowIdArray(final OracleConnection connSource, final int rowNumStart, final int rowNumEnd) throws SQLException {
-		final int arraySize = rowNumEnd - rowNumStart;
-		final String[] rowIds = new String[arraySize];
-		int i = 0;
-		for (int rowNum = rowNumStart; rowNum < rowNumEnd; rowNum++) {
-			rowIds[i++] = keyArray.get(rowNum).stringValue();
-		}
-		return connSource.createOracleArray("SYS.ODCIVARCHAR2LIST", rowIds);
+		return rowIdStore.getRowIdArray(connSource, rowNumStart, rowNumEnd);
 	}
 
 	protected OracleCallableStatement prepareSource(
@@ -98,27 +105,6 @@ public class PipeTable {
 			final PipeColumn column = allColumns.get(i);
 			column.bindData(i + 1, resultSet, insertData);
 		}
-	}
-
-	private void readKeys(
-			final OracleConnection connection) throws SQLException {
-		long elapsed = System.currentTimeMillis();
-		int rowCount = 0;
-		final PreparedStatement statement = connection.prepareStatement(sqlSelectKeys,
-				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		final OracleResultSet resultSet = (OracleResultSet) statement.executeQuery();
-		while (resultSet.next()) {
-			rowCount++;
-			keyArray.add(resultSet.getROWID(1));
-		}
-		elapsed = System.currentTimeMillis() - elapsed;
-		LOGGER.info(
-				"\n" +
-				"=====================\n" +
-				"{}.{} :\n" +
-				"\t{} rows read in {} milliseconds\n" +
-				"=====================\n",
-				sourceTableOwner, sourceTableName, rowCount, elapsed);
 	}
 
 	private void fillColumnInfo(
@@ -244,6 +230,10 @@ order by C.COLUMN_ID;
 			}
 			throw sqle;
 		}
+	}
+
+	protected void close() {
+		rowIdStore.close();
 	}
 
 }

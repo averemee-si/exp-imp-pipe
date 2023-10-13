@@ -42,13 +42,15 @@ public class ExpImpPipe {
 	private static final Logger LOGGER = LoggerFactory.getLogger(ExpImpPipe.class);
 	private static final int ROWS_TO_COMMIT = 50;
 
+	protected static int ROWID_STORE_LIST = 1;
+	protected static int ROWID_STORE_CMAP = 2;
+
 	public static void main(String[] argv) {
 		LOGGER.info("Starting...");
 
 		// Command line options
 		final Options options = new Options();
 		setupCliOptions(options);
-
 
 		final CommandLineParser parser = new DefaultParser();
 		final HelpFormatter formatter = new HelpFormatter();
@@ -155,8 +157,9 @@ public class ExpImpPipe {
 
 		PipeTable table = null;
 		try (OracleConnection connection = source.getConnection()) {
+			//TODO
 			table = new PipeTable(connection, sourceSchema, sourceTable,
-					destinationSchema, destinationTable, whereClause);
+					destinationSchema, destinationTable, whereClause, ROWID_STORE_LIST);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to read table {}.{} definition!",
 					sourceSchema, sourceTable);
@@ -193,6 +196,7 @@ public class ExpImpPipe {
 			e.printStackTrace();
 		}
 		threadPool.shutdown();
+		table.close();
 	}
 
 	private static void setupCliOptions(final Options options) {
