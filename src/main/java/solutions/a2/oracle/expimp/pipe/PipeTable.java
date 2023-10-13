@@ -13,6 +13,7 @@
 
 package solutions.a2.oracle.expimp.pipe;
 
+import java.io.IOException;
 import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -54,17 +55,17 @@ public class PipeTable {
 			final String destinationTableOwner,
 			final String destinationTableName,
 			final String whereClause,
-			final int rowIdStoreType) throws SQLException {
+			final int rowIdStoreType) throws SQLException, IOException {
 		this.sourceTableOwner = sourceTableOwner;
 		this.sourceTableName = sourceTableName;
 		this.destinationTableOwner = destinationTableOwner;
 		this.destinationTableName = destinationTableName;
 		this.allColumns = new ArrayList<>();
-		if (rowIdStoreType == ExpImpPipe.ROWID_STORE_LIST) {
-			this.rowIdStore = new RowIdStoreArrayList();
+		if (rowIdStoreType == ExpImpPipe.ROWID_STORE_CQ) {
+			this.rowIdStore = new RowIdStoreChronicleQueue(sourceTableOwner, sourceTableName);
 		} else {
-			//TODO
-			this.rowIdStore = null;
+			//ROWID_STORE_LIST
+			this.rowIdStore = new RowIdStoreArrayList();
 		}
 		fillColumnInfo(connection, whereClause);
 

@@ -13,6 +13,7 @@
 
 package solutions.a2.oracle.expimp.pipe;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -43,7 +44,7 @@ public class ExpImpPipe {
 	private static final int ROWS_TO_COMMIT = 50;
 
 	protected static int ROWID_STORE_LIST = 1;
-	protected static int ROWID_STORE_CMAP = 2;
+	protected static int ROWID_STORE_CQ = 2;
 
 	public static void main(String[] argv) {
 		LOGGER.info("Starting...");
@@ -155,15 +156,26 @@ public class ExpImpPipe {
 			useDefaultFetchSize = true;
 		}
 
+		final int rowIdStoreType;
+		if (cmd.hasOption("use-chronicle-queue")) {
+			rowIdStoreType = ROWID_STORE_CQ;
+		} else {
+			rowIdStoreType = ROWID_STORE_LIST;
+		}
+
 		PipeTable table = null;
 		try (OracleConnection connection = source.getConnection()) {
 			//TODO
 			table = new PipeTable(connection, sourceSchema, sourceTable,
-					destinationSchema, destinationTable, whereClause, ROWID_STORE_LIST);
+					destinationSchema, destinationTable, whereClause, rowIdStoreType);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to read table {}.{} definition!",
 					sourceSchema, sourceTable);
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			System.exit(1);
+		} catch (IOException ioe) {
+			LOGGER.error("Unable to create Chronicle Queue!");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 			System.exit(1);
 		}
 
@@ -262,6 +274,10 @@ public class ExpImpPipe {
 				"When specified try to fetch all rows from source");
 		prefetchAllRows.setRequired(false);
 		options.addOption(prefetchAllRows);
+		final Option useChronicle = new Option("q", "use-chronicle-queue", false,
+				"When specified Chronicle Queue will be used as temporary store for ROWIDs");
+		useChronicle.setRequired(false);
+		options.addOption(useChronicle);
 
 	}
 }

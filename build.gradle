@@ -74,6 +74,13 @@ dependencies {
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-reload4j
     implementation("org.slf4j:slf4j-reload4j:$slf4jVersion")
  
+    def chronicleQueueVersion = "5.23.37"
+    // https://mvnrepository.com/artifact/net.openhft/chronicle-queue
+    implementation("net.openhft:chronicle-queue:$chronicleQueueVersion")
+    def chronicleAffinityVersion = "3.23.3"
+    // https://mvnrepository.com/artifact/net.openhft/affinity
+    implementation("net.openhft:affinity:$chronicleAffinityVersion")
+ 
     def jUnitVersion = "5.9.2"
     // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
     testImplementation("org.junit.jupiter:junit-jupiter-api:$jUnitVersion")
