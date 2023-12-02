@@ -179,36 +179,45 @@ public class ExpImpPipe {
 			System.exit(1);
 		}
 
-		final ExecutorService threadPool = Executors.newFixedThreadPool(degree);
-		final CountDownLatch latch = new CountDownLatch(degree);
-		int rowNumStart = 0;
-		final int interval = Math.floorDiv(table.rowCount(), degree) + 1;
-		for (int i = 0; i < degree; i++) {
-			try {
-				final int rownumEnd;
-				if (i == degree - 1) {
-					rownumEnd = table.rowCount();
-				} else {
-					rownumEnd = rowNumStart + interval;
+		if (table.rowCount() == 0) {
+			LOGGER.info("Table {} does not contain any data!");
+			table.close();
+		} else {
+			if (degree > table.rowCount()) {
+				degree = table.rowCount();
+				LOGGER.info("Parallel degree is set to {}.", degree);
+			}
+			final ExecutorService threadPool = Executors.newFixedThreadPool(degree);
+			final CountDownLatch latch = new CountDownLatch(degree);
+			int rowNumStart = 0;
+			final int interval = Math.floorDiv(table.rowCount(), degree) + 1;
+			for (int i = 0; i < degree; i++) {
+				try {
+					final int rownumEnd;
+					if (i == degree - 1) {
+						rownumEnd = table.rowCount();
+					} else {
+						rownumEnd = rowNumStart + interval;
+					}
+					final PipeWorker worker = new PipeWorker(i, latch,
+							rowNumStart, rownumEnd, table, source.getConnection(),
+							dest.getConnection(), commitAfter, useDefaultFetchSize);
+					threadPool.submit(worker);
+					rowNumStart = rownumEnd;
+				} catch (SQLException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
-				final PipeWorker worker = new PipeWorker(i, latch,
-						rowNumStart, rownumEnd, table, source.getConnection(),
-						dest.getConnection(), commitAfter, useDefaultFetchSize);
-				threadPool.submit(worker);
-				rowNumStart = rownumEnd;
-			} catch (SQLException e) {
+			}
+			try {
+				latch.await();
+			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			threadPool.shutdown();
+			table.close();
 		}
-		try {
-			latch.await();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		threadPool.shutdown();
-		table.close();
 	}
 
 	private static void setupCliOptions(final Options options) {
