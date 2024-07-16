@@ -13,8 +13,8 @@
 
 plugins {
 	id "java-library"
-	id "com.github.johnrengelman.shadow" version "7.1.2"
-	id "org.owasp.dependencycheck" version "8.4.0"
+	id "com.github.johnrengelman.shadow" version "8.1.1"
+	id "org.owasp.dependencycheck" version "10.0.3"
 	id "maven-publish"
     id "signing"
 }
@@ -100,7 +100,6 @@ jar {
     }
 }
 
-import com.github.jengelman.gradle.plugins.shadow.tasks.ConfigureShadowRelocation
 shadowJar {
     duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
     manifest {
