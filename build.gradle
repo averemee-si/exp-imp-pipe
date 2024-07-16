@@ -54,7 +54,7 @@ repositories {
 }
 
 dependencies {
-    def oracleJdbcVersion = "23.3.0.23.09"
+    def oracleJdbcVersion = "23.4.0.24.05"
     // https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc11
     implementation("com.oracle.database.jdbc:ojdbc11:$oracleJdbcVersion")
     // https://mvnrepository.com/artifact/com.oracle.database.jdbc/ucp11
@@ -64,7 +64,7 @@ dependencies {
     // https://mvnrepository.com/artifact/commons-cli/commons-cli
     implementation("commons-cli:commons-cli:$commonsCliVersion")
 
- 	def commonsLang3Version = "3.13.0"
+ 	def commonsLang3Version = "3.14.0"
  	// https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
  	implementation("org.apache.commons:commons-lang3:$commonsLang3Version")
 
@@ -81,7 +81,7 @@ dependencies {
     // https://mvnrepository.com/artifact/net.openhft/affinity
     implementation("net.openhft:affinity:$chronicleAffinityVersion")
  
-    def jUnitVersion = "5.9.2"
+    def jUnitVersion = "5.10.3"
     // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
     testImplementation("org.junit.jupiter:junit-jupiter-api:$jUnitVersion")
     // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-engine
