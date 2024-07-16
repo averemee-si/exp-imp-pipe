@@ -76,7 +76,7 @@ dependencies {
  	// https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
  	implementation("org.apache.commons:commons-lang3:$commonsLang3Version")
 
-    def slf4jVersion = "2.0.9"
+    def slf4jVersion = "2.0.13"
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
     implementation("org.slf4j:slf4j-api:$slf4jVersion")
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-reload4j
