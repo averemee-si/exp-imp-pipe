@@ -14,6 +14,7 @@
 package solutions.a2.oracle.expimp.pipe;
 
 import java.sql.Array;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.concurrent.CountDownLatch;
 
@@ -22,7 +23,6 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleCallableStatement;
 import oracle.jdbc.OracleConnection;
-import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
 import oracle.jdbc.OracleTypes;
 
@@ -79,7 +79,7 @@ public class PipeWorker extends Thread {
 			long elapsed = System.currentTimeMillis();
 			int rowsProcessed = 0;
 			final OracleCallableStatement selectData = table.prepareSource(connSource);
-			final OraclePreparedStatement insertData = table.prepareDest(connDest);
+			final PreparedStatement insertData = table.prepareDest(connDest);
 			if (!useDefaultFetchSize) {
 				selectData.setFetchSize(rowNumEnd - rowNumStart);
 			}

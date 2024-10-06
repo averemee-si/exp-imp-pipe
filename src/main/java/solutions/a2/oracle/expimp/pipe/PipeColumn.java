@@ -13,30 +13,14 @@
 
 package solutions.a2.oracle.expimp.pipe;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.NClob;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLXML;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import oracle.jdbc.OraclePreparedStatement;
-import oracle.jdbc.OracleResultSet;
 import oracle.jdbc.OracleTypes;
-import oracle.sql.DATE;
-import oracle.sql.INTERVALDS;
-import oracle.sql.INTERVALYM;
-import oracle.sql.NUMBER;
-import oracle.sql.TIMESTAMP;
-import oracle.sql.TIMESTAMPLTZ;
-import oracle.sql.TIMESTAMPTZ;
 
 /**
  * 
@@ -44,13 +28,13 @@ import oracle.sql.TIMESTAMPTZ;
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
-public class PipeColumn {
+public abstract class PipeColumn {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(PipeColumn.class);
 
-	private final String columnName;
-	private final int chunk;
-	private final int jdbcType;
+	final String columnName;
+	int chunk;
+	int jdbcType;
 
 	public PipeColumn(final ResultSet resultSet) throws SQLException {
 		this.columnName = resultSet.getString("COLUMN_NAME");
@@ -126,146 +110,5 @@ public class PipeColumn {
 			}
 		}
 	}
-
-	public void bindData(int index, OracleResultSet resultSet, OraclePreparedStatement insertData) throws SQLException {
-		switch (jdbcType) {
-		case OracleTypes.TIMESTAMPLTZ:
-			final TIMESTAMPLTZ tsLtz = resultSet.getTIMESTAMPLTZ(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setTIMESTAMPLTZ(index, tsLtz);
-			break;
-		case OracleTypes.TIMESTAMPTZ:
-			final TIMESTAMPTZ tsTz = resultSet.getTIMESTAMPTZ(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setTIMESTAMPTZ(index, tsTz);
-			break;
-		case OracleTypes.TIMESTAMP:
-			final TIMESTAMP ts = resultSet.getTIMESTAMP(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setTIMESTAMP(index, ts);
-			break;
-		case OracleTypes.INTERVALYM:
-			final INTERVALYM iym = resultSet.getINTERVALYM(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setINTERVALYM(index, iym);
-			break;
-		case OracleTypes.INTERVALDS:
-			final INTERVALDS ids = resultSet.getINTERVALDS(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setINTERVALDS(index, ids);
-			break;
-		case OracleTypes.DATE:
-			final DATE date = resultSet.getDATE(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setDATE(index, date);
-			break;
-		case OracleTypes.NUMBER:
-			final NUMBER number = resultSet.getNUMBER(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setNUMBER(index, number);
-			break;
-		case OracleTypes.BINARY_FLOAT:
-			final float fNumber = resultSet.getFloat(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setFloat(index, fNumber);
-			break;
-		case OracleTypes.BINARY_DOUBLE:
-			final double dNumber = resultSet.getDouble(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setDouble(index, dNumber);
-			break;
-		case OracleTypes.CHAR:
-		case OracleTypes.VARCHAR:
-			final String string = resultSet.getString(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setString(index, string);
-			break;
-		case OracleTypes.NCHAR:
-		case OracleTypes.NVARCHAR:
-			final String nString = resultSet.getNString(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setNString(index, nString);
-			break;
-		case OracleTypes.CLOB:
-			final Clob clob = resultSet.getClob(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				try (Reader reader = clob.getCharacterStream()) {
-					insertData.setClob(index, reader);
-				} catch (IOException ioe) {
-					throw new SQLException(ioe);
-				}
-			break;
-		case OracleTypes.NCLOB:
-			final NClob nClob = resultSet.getNClob(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				try (Reader reader = nClob.getCharacterStream()) {
-					insertData.setClob(index, reader);
-				} catch (IOException ioe) {
-					throw new SQLException(ioe);
-				}
-			break;
-		case OracleTypes.BINARY:
-			final byte[] ba = resultSet.getBytes(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				insertData.setBytes(index, ba);
-			break;
-		case OracleTypes.BLOB:
-			final Blob blob = resultSet.getBlob(index);
-			if (resultSet.wasNull())
-				insertData.setNull(index, jdbcType);
-			else
-				try (InputStream stream = blob.getBinaryStream()) {
-					insertData.setBlob(index, stream);
-				} catch (IOException ioe) {
-					throw new SQLException(ioe);
-				}
-			break;
-		case OracleTypes.SQLXML:
-			final SQLXML sqlxml = resultSet.getSQLXML(index);
-			if (resultSet.wasNull())
-				insertData.setSQLXML(index, sqlxml);
-			else
-				try (InputStream stream = sqlxml.getBinaryStream()) {
-					insertData.setBinaryStream(index, stream);
-				} catch (IOException ioe) {
-					throw new SQLException(ioe);
-				}
-			break;
-			
-		}
-	}
-
-	public String getColumnName() {
-		return columnName;
-	}
-
 
 }

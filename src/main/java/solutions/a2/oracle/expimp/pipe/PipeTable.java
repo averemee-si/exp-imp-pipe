@@ -38,13 +38,16 @@ import oracle.jdbc.OracleResultSet;
  */
 public class PipeTable {
 
+	public static int DESTINATION_ORA = 0;
+	public static int DESTINATION_PG = 1;
+
 	private static final Logger LOGGER = LoggerFactory.getLogger(PipeTable.class);
 
 	private final String sourceTableOwner;
 	private final String sourceTableName;
 	private final String destinationTableOwner;
 	private final String destinationTableName;
-	private final List<PipeColumn> allColumns;
+	private final List<PipeColumnBind> allColumns;
 	private String sqlSelectKeys, sqlSelectData, sqlInsertData;
 	private final RowIdStore rowIdStore;
 
@@ -94,16 +97,16 @@ public class PipeTable {
 		return (OracleCallableStatement) connSource.prepareCall(sqlSelectData);
 	}
 
-	protected OraclePreparedStatement prepareDest(
+	protected PreparedStatement prepareDest(
 			final OracleConnection connDest) throws SQLException {
 		return (OraclePreparedStatement) connDest.prepareStatement(sqlInsertData);
 	}
 
 	protected void processRow(
 			final OracleResultSet resultSet,
-			final OraclePreparedStatement insertData) throws SQLException {
+			final PreparedStatement insertData) throws SQLException {
 		for (int i = 0; i < allColumns.size(); i++) {
-			final PipeColumn column = allColumns.get(i);
+			final PipeColumnBind column = allColumns.get(i);
 			column.bindData(i + 1, resultSet, insertData);
 		}
 	}
@@ -161,7 +164,10 @@ order by C.COLUMN_ID;
 					.append(destinationTableName)
 					.append("(");
 			while (resultSet.next()) {
-				final PipeColumn pipeColumn = new PipeColumn(resultSet);
+				//TODO
+				//TODO
+				//TODO
+				final PipeColumnBind pipeColumn = new PipeColumnOra(resultSet);
 				allColumns.add(pipeColumn);
 				if (firstValue) {
 					firstValue = false;
@@ -169,8 +175,8 @@ order by C.COLUMN_ID;
 					selectData.append(", ");
 					insertData.append(", ");
 				}
-				selectData.append(pipeColumn.getColumnName());
-				insertData.append(pipeColumn.getColumnName());
+				selectData.append(pipeColumn.columnName());
+				insertData.append(pipeColumn.columnName());
 			}
 
 			if (StringUtils.isNotBlank(whereClause)) {
