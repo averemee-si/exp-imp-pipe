@@ -176,11 +176,10 @@ public class ExpImpPipe {
 		}
 
 		PipeTable table = null;
-		try (OracleConnection connection = source.getConnection()) {
-			//TODO
+		try (OracleConnection connection = (OracleConnection) source.getConnection()) {
 			table = new PipeTable(connection, sourceSchema, sourceTable,
-					destinationSchema, destinationTable, whereClause,
-					rowIdStoreType, rowIdColumnName);
+					dest.getType(), destinationSchema, destinationTable,
+					whereClause, rowIdStoreType, rowIdColumnName);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to read table {}.{} definition!",
 					sourceSchema, sourceTable);

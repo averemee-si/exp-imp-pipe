@@ -15,6 +15,7 @@ package solutions.a2.oracle.expimp.pipe;
 
 import java.io.IOException;
 import java.sql.Array;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.RowId;
@@ -28,7 +29,6 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleCallableStatement;
 import oracle.jdbc.OracleConnection;
-import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
 import oracle.jdbc.OracleTypes;
 
@@ -39,9 +39,6 @@ import oracle.jdbc.OracleTypes;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
 public class PipeTable {
-
-	public static int DESTINATION_ORA = 0;
-	public static int DESTINATION_PG = 1;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(PipeTable.class);
 
@@ -58,6 +55,7 @@ public class PipeTable {
 			final OracleConnection connection,
 			final String sourceTableOwner,
 			final String sourceTableName,
+			final int type,
 			final String destinationTableOwner,
 			final String destinationTableName,
 			final String whereClause,
@@ -79,7 +77,7 @@ public class PipeTable {
 			//ROWID_STORE_LIST
 			this.rowIdStore = new RowIdStoreArrayList();
 		}
-		fillColumnInfo(connection, whereClause, rowIdColumnName);
+		fillColumnInfo(connection, whereClause, rowIdColumnName, type);
 
 		long elapsed = System.currentTimeMillis();
 		rowIdStore.readKeys(connection, sqlSelectKeys);
@@ -107,8 +105,8 @@ public class PipeTable {
 	}
 
 	protected PreparedStatement prepareDest(
-			final OracleConnection connDest) throws SQLException {
-		return (OraclePreparedStatement) connDest.prepareStatement(sqlInsertData);
+			final Connection connDest) throws SQLException {
+		return connDest.prepareStatement(sqlInsertData);
 	}
 
 	protected void processRow(
@@ -134,7 +132,8 @@ public class PipeTable {
 	private void fillColumnInfo(
 			final OracleConnection connection,
 			final String whereClause,
-			final String rowIdColumnName) throws SQLException {
+			final String rowIdColumnName,
+			final int type) throws SQLException {
 		/*
 select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION,
        C.DATA_SCALE, C.NULLABLE, C.COLUMN_ID, C.DATA_DEFAULT, L.CHUNK
@@ -191,10 +190,12 @@ order by C.COLUMN_ID;
 				firstValue = false;
 			}
 			while (oraResultSet.next()) {
-				//TODO
-				//TODO
-				//TODO
-				final PipeColumn pipeColumn = new PipeColumnOra(oraResultSet);
+				final PipeColumn pipeColumn;
+				if (type == PipePool.TYPE_ORA) {
+					pipeColumn = new PipeColumnOra(oraResultSet);
+				} else {
+					pipeColumn = new PipeColumnPg(oraResultSet);
+				}
 				allColumns.add(pipeColumn);
 				if (firstValue) {
 					firstValue = false;

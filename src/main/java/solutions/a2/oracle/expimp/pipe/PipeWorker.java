@@ -14,6 +14,7 @@
 package solutions.a2.oracle.expimp.pipe;
 
 import java.sql.Array;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.concurrent.CountDownLatch;
@@ -42,7 +43,7 @@ public class PipeWorker extends Thread {
 	private final int rowNumEnd;
 	private final PipeTable table;
 	private final OracleConnection connSource;
-	private final OracleConnection connDest;
+	private final Connection connDest;
 	private final int commitAfter;
 	private final boolean useDefaultFetchSize;
 
@@ -55,8 +56,8 @@ public class PipeWorker extends Thread {
 			final int rowNumStart,
 			final int rowNumEnd,
 			final PipeTable table,
-			final OracleConnection connSource,
-			final OracleConnection connDest,
+			final Connection connSource,
+			final Connection connDest,
 			final int commitAfter,
 			final boolean useDefaultFetchSize) throws SQLException {
 		this.setDaemon(true);
@@ -65,7 +66,7 @@ public class PipeWorker extends Thread {
 		this.rowNumStart = rowNumStart;
 		this.rowNumEnd = rowNumEnd;
 		this.table = table;
-		this.connSource = connSource;
+		this.connSource = (OracleConnection) connSource;
 		this.connDest = connDest;
 		this.commitAfter = commitAfter;
 		this.useDefaultFetchSize = useDefaultFetchSize;
