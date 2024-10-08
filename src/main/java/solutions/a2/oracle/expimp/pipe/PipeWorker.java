@@ -117,7 +117,7 @@ public class PipeWorker extends Thread {
 				long elapsed4Part = elapsedBatch;
 
 				rowsToCommit = 0;
-				int rowsProcessedInBatch = 0;
+				int rowsInBatch = 0;
 				int rowsToPrintLog = 0;
 				selectData.registerOutParameter(1, OracleTypes.CURSOR);
 				selectData.setArray(2, rowIdArray);
@@ -128,7 +128,7 @@ public class PipeWorker extends Thread {
 					table.processRow(resultSet, insertData);
 					insertData.addBatch();
 					rowsProcessed++;
-					rowsProcessedInBatch++;
+					rowsInBatch++;
 					rowsToCommit++;
 					rowsToPrintLog++;
 					if (rowsToCommit == commitAfter) {
@@ -155,7 +155,7 @@ public class PipeWorker extends Thread {
 						"=====================\n" +
 						"Thread {}, Batch {}: {} rows processed in {} milliseconds\n" +
 						"=====================\n",
-						this.getName(), batchNum, rowsProcessedInBatch, System.currentTimeMillis() - elapsedBatch);
+						this.getName(), batchNum, rowsInBatch, System.currentTimeMillis() - elapsedBatch);
 			}
 			selectData.close();
 			insertData.close();

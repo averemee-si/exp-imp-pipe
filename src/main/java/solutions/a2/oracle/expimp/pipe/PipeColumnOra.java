@@ -20,7 +20,6 @@ import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.NClob;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLXML;
 
@@ -43,11 +42,10 @@ import oracle.sql.TIMESTAMPTZ;
  */
 public class PipeColumnOra extends PipeColumn implements PipeColumnBind {
 
-	public PipeColumnOra(final ResultSet resultSet) throws SQLException {
-		super(resultSet);
+	public PipeColumnOra(final OracleResultSet oraResultSet) throws SQLException {
+		super(oraResultSet);
 	}
 
-	@Override
 	public String columnName() {
 		return columnName;
 	}
@@ -98,6 +96,10 @@ public class PipeColumnOra extends PipeColumn implements PipeColumnBind {
 				((OraclePreparedStatement)insertData).setDATE(index, date);
 			break;
 		case OracleTypes.NUMBER:
+		case OracleTypes.TINYINT:
+		case OracleTypes.SMALLINT:
+		case OracleTypes.INTEGER:
+		case OracleTypes.BIGINT:
 			final NUMBER number = resultSet.getNUMBER(index);
 			if (resultSet.wasNull())
 				insertData.setNull(index, jdbcType);

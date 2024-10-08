@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.RowId;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +30,7 @@ import oracle.jdbc.OracleCallableStatement;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
+import oracle.jdbc.OracleTypes;
 
 /**
  * 
@@ -47,9 +49,10 @@ public class PipeTable {
 	private final String sourceTableName;
 	private final String destinationTableOwner;
 	private final String destinationTableName;
-	private final List<PipeColumnBind> allColumns;
+	private final List<PipeColumn> allColumns;
 	private String sqlSelectKeys, sqlSelectData, sqlInsertData;
 	private final RowIdStore rowIdStore;
+	private final boolean addRowId;
 
 	public PipeTable(
 			final OracleConnection connection,
@@ -58,19 +61,25 @@ public class PipeTable {
 			final String destinationTableOwner,
 			final String destinationTableName,
 			final String whereClause,
-			final int rowIdStoreType) throws SQLException, IOException {
+			final int rowIdStoreType,
+			final String rowIdColumnName) throws SQLException, IOException {
 		this.sourceTableOwner = sourceTableOwner;
 		this.sourceTableName = sourceTableName;
 		this.destinationTableOwner = destinationTableOwner;
 		this.destinationTableName = destinationTableName;
 		this.allColumns = new ArrayList<>();
+		if (StringUtils.isNotBlank(rowIdColumnName)) {
+			addRowId = true;
+		} else {
+			addRowId = false;
+		}
 		if (rowIdStoreType == ExpImpPipe.ROWID_STORE_CQ) {
 			this.rowIdStore = new RowIdStoreChronicleQueue(sourceTableOwner, sourceTableName);
 		} else {
 			//ROWID_STORE_LIST
 			this.rowIdStore = new RowIdStoreArrayList();
 		}
-		fillColumnInfo(connection, whereClause);
+		fillColumnInfo(connection, whereClause, rowIdColumnName);
 
 		long elapsed = System.currentTimeMillis();
 		rowIdStore.readKeys(connection, sqlSelectKeys);
@@ -105,15 +114,27 @@ public class PipeTable {
 	protected void processRow(
 			final OracleResultSet resultSet,
 			final PreparedStatement insertData) throws SQLException {
+		final int diff;
+		if (addRowId) {
+			diff = 2;
+			final RowId rowId = resultSet.getRowId(1);
+			if (resultSet.wasNull())
+				insertData.setNull(1, OracleTypes.VARCHAR);
+			else
+				insertData.setString(1, rowId.toString());
+		} else {
+			diff = 1;
+		}
 		for (int i = 0; i < allColumns.size(); i++) {
-			final PipeColumnBind column = allColumns.get(i);
-			column.bindData(i + 1, resultSet, insertData);
+				final PipeColumnBind column = (PipeColumnBind) allColumns.get(i);
+				column.bindData(i + diff, resultSet, insertData);
 		}
 	}
 
 	private void fillColumnInfo(
 			final OracleConnection connection,
-			final String whereClause) throws SQLException {
+			final String whereClause,
+			final String rowIdColumnName) throws SQLException {
 		/*
 select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION,
        C.DATA_SCALE, C.NULLABLE, C.COLUMN_ID, C.DATA_DEFAULT, L.CHUNK
@@ -141,7 +162,7 @@ order by C.COLUMN_ID;
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			statement.setString(1, sourceTableOwner);
 			statement.setString(2, sourceTableName);
-			final ResultSet resultSet = statement.executeQuery();
+			final OracleResultSet oraResultSet = (OracleResultSet) statement.executeQuery();
 
 			boolean firstValue = true;
 			final StringBuilder selectKeys = new StringBuilder(256);
@@ -163,11 +184,17 @@ order by C.COLUMN_ID;
 					.append(".")
 					.append(destinationTableName)
 					.append("(");
-			while (resultSet.next()) {
+			if (addRowId) {
+				selectData.append("KU$.rowid");
+				insertData
+					.append(rowIdColumnName);
+				firstValue = false;
+			}
+			while (oraResultSet.next()) {
 				//TODO
 				//TODO
 				//TODO
-				final PipeColumnBind pipeColumn = new PipeColumnOra(resultSet);
+				final PipeColumn pipeColumn = new PipeColumnOra(oraResultSet);
 				allColumns.add(pipeColumn);
 				if (firstValue) {
 					firstValue = false;
@@ -197,6 +224,10 @@ order by C.COLUMN_ID;
 
 			insertData.append(")\nvalues(");
 			firstValue = true;
+			if (addRowId) {
+				insertData.append("?");
+				firstValue = false;
+			}
 			for (int i = 0; i < allColumns.size(); i++) {
 				if (firstValue) {
 					firstValue = false;

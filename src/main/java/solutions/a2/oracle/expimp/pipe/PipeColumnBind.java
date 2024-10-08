@@ -25,7 +25,6 @@ import oracle.jdbc.OracleResultSet;
  */
 public interface PipeColumnBind {
 
-	String columnName();
 	void bindData(int index, OracleResultSet resultSet, PreparedStatement insertData) throws SQLException;
 
 }

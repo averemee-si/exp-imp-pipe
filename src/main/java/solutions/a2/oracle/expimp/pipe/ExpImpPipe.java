@@ -42,6 +42,7 @@ public class ExpImpPipe {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ExpImpPipe.class);
 	private static final int ROWS_TO_COMMIT = 50;
+	private static final String ROWID_KEY = "ORA_ROW_ID";
 
 	protected static int ROWID_STORE_LIST = 1;
 	protected static int ROWID_STORE_CQ = 2;
@@ -162,12 +163,24 @@ public class ExpImpPipe {
 		} else {
 			rowIdStoreType = ROWID_STORE_LIST;
 		}
+	
+		final String rowIdColumnName;
+		if (cmd.hasOption("add-rowid-to-dest")) {
+			if (StringUtils.isBlank(cmd.getOptionValue("rowid-column-name"))) {
+				rowIdColumnName = ROWID_KEY;
+			} else {
+				rowIdColumnName = cmd.getOptionValue("rowid-column-name");
+			}
+		} else {
+			rowIdColumnName = null;
+		}
 
 		PipeTable table = null;
 		try (OracleConnection connection = source.getConnection()) {
 			//TODO
 			table = new PipeTable(connection, sourceSchema, sourceTable,
-					destinationSchema, destinationTable, whereClause, rowIdStoreType);
+					destinationSchema, destinationTable, whereClause,
+					rowIdStoreType, rowIdColumnName);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to read table {}.{} definition!",
 					sourceSchema, sourceTable);
@@ -278,15 +291,25 @@ public class ExpImpPipe {
 				"Optional number of rows to commit. Default value - " + ROWS_TO_COMMIT);
 		rowsToCommit.setRequired(false);
 		options.addOption(rowsToCommit);
-		// Optional
+		// Optional - fetch all
 		final Option prefetchAllRows = new Option("f", "fetch-all-rows", false,
 				"When specified try to fetch all rows from source");
 		prefetchAllRows.setRequired(false);
 		options.addOption(prefetchAllRows);
+		// Optional - use ChronicleQueue to store ROWID
 		final Option useChronicle = new Option("q", "use-chronicle-queue", false,
 				"When specified Chronicle Queue will be used as temporary store for ROWIDs");
 		useChronicle.setRequired(false);
 		options.addOption(useChronicle);
+		// Optional - add ROWID data
+		final Option addRowId = new Option("r", "add-rowid-to-dest", false,
+				"When specified ROWID pseudocolumn is added to destination as VARCHAR column with name ORA_ROW_ID");
+		addRowId.setRequired(false);
+		options.addOption(addRowId);
+		final Option rowIdColumnName = new Option("n", "rowid-column-name", true,
+				"Specifies the name for the column in destination table storing the source ROWIDs. Default - " + ROWID_KEY);
+		rowIdColumnName.setRequired(false);
+		options.addOption(rowIdColumnName);
 
 	}
 }

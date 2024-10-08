@@ -13,14 +13,15 @@
 
 package solutions.a2.oracle.expimp.pipe;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import oracle.jdbc.OracleResultSet;
 import oracle.jdbc.OracleTypes;
+import oracle.sql.NUMBER;
 
 /**
  * 
@@ -28,7 +29,7 @@ import oracle.jdbc.OracleTypes;
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
-public abstract class PipeColumn {
+public class PipeColumn {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(PipeColumn.class);
 
@@ -36,12 +37,9 @@ public abstract class PipeColumn {
 	int chunk;
 	int jdbcType;
 
-	public PipeColumn(final ResultSet resultSet) throws SQLException {
-		this.columnName = resultSet.getString("COLUMN_NAME");
-		final int lobChunk = resultSet.getInt("CHUNK");
-		this.chunk = resultSet.wasNull() ? 0 : lobChunk;
-		final String oraType = resultSet.getString("DATA_TYPE");
-
+	PipeColumn(final String columnName, final String oraType, final int chunk, final NUMBER precision, final NUMBER scale) throws SQLException {
+		this.columnName = columnName;
+		this.chunk = chunk;
 		if (StringUtils.startsWith(oraType, "TIMESTAMP")) {
 			if (StringUtils.endsWith(oraType, "WITH LOCAL TIME ZONE")) {
 				jdbcType = OracleTypes.TIMESTAMPLTZ;
@@ -63,7 +61,23 @@ public abstract class PipeColumn {
 				break;
 			case "FLOAT":
 			case "NUMBER":
-				jdbcType = OracleTypes.NUMBER;
+				if (precision == null && scale == null) {
+					jdbcType = OracleTypes.NUMBER;
+				} else if (scale.isZero() && precision != null) {
+					if (precision.shortValue() < 3) {
+						jdbcType = OracleTypes.TINYINT;
+					} else if (precision.shortValue() < 5) {
+						jdbcType = OracleTypes.SMALLINT;
+					} else if (precision.shortValue() < 10) {
+						jdbcType = OracleTypes.INTEGER;
+					} else if (precision.shortValue() < 19) {
+						jdbcType = OracleTypes.BIGINT;
+					} else {
+						jdbcType = OracleTypes.NUMBER;
+					}
+				} else {
+					jdbcType = OracleTypes.NUMBER;
+				}
 				break;
 			case "BINARY_FLOAT":
 				jdbcType = OracleTypes.BINARY_FLOAT;
@@ -82,6 +96,9 @@ public abstract class PipeColumn {
 				break;
 			case "NVARCHAR2":
 				jdbcType = OracleTypes.NVARCHAR;
+				break;
+			case "ROWID":
+				jdbcType = OracleTypes.ROWID;
 				break;
 			case "CLOB":
 				jdbcType = OracleTypes.CLOB;
@@ -109,6 +126,19 @@ public abstract class PipeColumn {
 				jdbcType = OracleTypes.JAVA_OBJECT;
 			}
 		}
+
+	}
+
+	PipeColumn(final OracleResultSet oraResultSet) throws SQLException {
+		this(oraResultSet.getString("COLUMN_NAME"),
+				oraResultSet.getString("DATA_TYPE"),
+				oraResultSet.getInt("CHUNK"),
+				oraResultSet.getNUMBER("DATA_PRECISION"),
+				oraResultSet.getNUMBER("DATA_SCALE"));
+	}
+
+	public String columnName() {
+		return columnName;
 	}
 
 }
